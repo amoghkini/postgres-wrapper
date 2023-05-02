@@ -25,7 +25,6 @@ class PostgresSql:
                                          password=self.conf.get('password'),
                                          port=self.conf.get('port'))
             self.cur = self.conn.cursor()
-            self.conn.autocommit = self.conf.get('autocommit')
 
         except Exception as e:
             print("Postgres connection failed")
@@ -51,19 +50,18 @@ class PostgresSql:
         result = cur.fetchone()
 
         row = None
-        print("Result", result)
         if result:
             fields = [f[0] for f in cur.description]
             row = zip(fields, result)
 
         return dict(row)
 
-    def get_all(self, 
+    def get_all(self,
                 schema: str,
-                table=None, 
-                fields='*', 
-                where=None, 
-                order=None, 
+                table=None,
+                fields='*',
+                where=None,
+                order=None,
                 limit=None):
         cur = self.__select(schema, table, fields, where, order, limit)
         result = cur.fetchall()
@@ -73,13 +71,30 @@ class PostgresSql:
             fields = [f[0] for f in cur.description]
             rows = [dict(zip(fields, r)) for r in result]
         return rows
-    
-    def __select(self, 
-                 schema=None, 
-                 table=None, 
-                 fields=(), 
-                 where=None, 
-                 order=None, 
+
+    def update(self, schema, table, data, where=None):
+        query = self.__serialize_update(data)
+
+        sql = "UPDATE %s.%s SET %s" % (schema, table, query)
+
+        if where and len(where) > 0:
+            sql += " WHERE %s" % where[0]
+        values = tuple(data.values())
+
+        return self.query(sql, values + where[1] if where and len(where) > 1 else values).rowcount
+
+    def __serialize_insert(self,
+                           data: Dict[str, Any]) -> List[str]:
+        keys = ",".join(data.keys())
+        vals = ",".join(["%s" for k in data])
+        return [keys, vals]
+
+    def __select(self,
+                 schema=None,
+                 table=None,
+                 fields=(),
+                 where=None,
+                 order=None,
                  limit=None):
 
         sql = "SELECT %s FROM %s.%s" % (",".join(fields), schema, table)
@@ -102,14 +117,14 @@ class PostgresSql:
 
         return self.query(sql, where[1] if where and len(where) > 1 else None)
 
-    def __serialize_insert(self,
-                           data: Dict[str, Any]) -> List[str]:
-        keys = ",".join(data.keys())
-        vals = ",".join(["%s" for k in data])
-        return [keys, vals]
+    def __serialize_update(self, data):
+        return "=%s,".join(data.keys()) + "=%s"
 
     def query(self, query, params=None):
         # Write a connetion decorator here. If connection is not alive then try for reconnect. Max retries are 3.
         # This method should also handle all the execeptions reaised by the database.
         self.cur.execute(query, params)
         return self.cur
+
+    def lastId(self):
+        return self.cur.lastrowid
