@@ -40,11 +40,72 @@ class PostgresSql:
             schema, table, query[0], query[1])
         return self.query(sql, tuple(data.values())).rowcount
 
-    def __serialize_insert(self, data: Dict[str, Any]) -> List[str]:
+    def get_one(self,
+                schema: str,
+                table: str = None,
+                fields='*',
+                where=None,
+                order=None,
+                limit=(1, 0)) -> Dict:
+        cur = self.__select(schema, table, fields, where, order, limit)
+        result = cur.fetchone()
+
+        row = None
+        print("Result", result)
+        if result:
+            fields = [f[0] for f in cur.description]
+            row = zip(fields, result)
+
+        return dict(row)
+
+    def get_all(self, 
+                schema: str,
+                table=None, 
+                fields='*', 
+                where=None, 
+                order=None, 
+                limit=None):
+        cur = self.__select(schema, table, fields, where, order, limit)
+        result = cur.fetchall()
+
+        rows = None
+        if result:
+            fields = [f[0] for f in cur.description]
+            rows = [dict(zip(fields, r)) for r in result]
+        return rows
+    
+    def __select(self, 
+                 schema=None, 
+                 table=None, 
+                 fields=(), 
+                 where=None, 
+                 order=None, 
+                 limit=None):
+
+        sql = "SELECT %s FROM %s.%s" % (",".join(fields), schema, table)
+
+        # where conditions
+        if where and len(where) > 0:
+            sql += " WHERE %s" % where[0]
+
+        # order
+        if order:
+            sql += " ORDER BY %s" % order[0]
+            if len(order) > 1:
+                sql += " %s" % order[1]
+
+        # limit
+        if limit:
+            sql += " LIMIT %s" % limit[0]
+            if len(limit) > 1:
+                sql += " OFFSET %s" % limit[1]
+
+        return self.query(sql, where[1] if where and len(where) > 1 else None)
+
+    def __serialize_insert(self,
+                           data: Dict[str, Any]) -> List[str]:
         keys = ",".join(data.keys())
-        print(keys)
         vals = ",".join(["%s" for k in data])
-        print(type(vals))
         return [keys, vals]
 
     def query(self, query, params=None):
