@@ -122,9 +122,28 @@ class PostgresSql:
 
     def query(self, query, params=None):
         # Write a connetion decorator here. If connection is not alive then try for reconnect. Max retries are 3.
-        # This method should also handle all the execeptions reaised by the database.
+        # This method should also handle all the execeptions raised by the database.
         self.cur.execute(query, params)
         return self.cur
 
     def lastId(self):
         return self.cur.lastrowid
+
+    def commit(self):
+        return self.conn.commit()
+
+    def rollback(self):
+        return self.conn.rollback()
+
+    def is_closed(self):
+        return self.conn.closed
+
+    def end(self):
+        self.cur.close()
+        self.conn.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, traceback):
+        self.end()
