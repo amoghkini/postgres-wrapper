@@ -6,5 +6,6 @@ The wrapper currently supports following commands:
 2. get_one()
 3. get_all()
 4. update()
+5. insert_or_update()
 
 The implementation of other methods is in progress.
